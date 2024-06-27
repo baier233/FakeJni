@@ -1,0 +1,1 @@
+I made it for reverse engineering of native obfuscated architectures, I will keep updating it a bit when i need to use it.
