@@ -33,9 +33,6 @@
     <ClCompile Include="base\dllmain.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="base\handler\XinxinHandler.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ext\jni\classfile_constants.h">
@@ -93,9 +90,6 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="base\jvm\hotspot\jvm_internal.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="base\handler\XinxinHandler.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

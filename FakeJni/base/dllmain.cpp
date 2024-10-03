@@ -139,7 +139,6 @@ static void JNICALL VMInitHook(jvmtiEnv* jvmti_env, JNIEnv* jni_env, jthread thr
 	//InitJniHook(jni_env);
 }
 
-#include <handler/XinxinHandler.h>
 static void JNICALL NativeMethodBindHook
 (jvmtiEnv* jvmti_env, JNIEnv* jni_env, jthread thread,
 	jmethodID methodid,
