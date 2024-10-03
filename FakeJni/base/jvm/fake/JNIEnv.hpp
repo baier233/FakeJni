@@ -210,7 +210,11 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		AllocObject = [](JNIEnv* env, jclass clazz) -> jobject {
-			_INVOKE_DEBUG(AllocObject);
+#ifdef OUTPUT
+			char* classSign = 0;
+			current_context->jvmti.value()->GetClassSignature(clazz, &classSign, 0);
+			log << "DEBUG: JNINativeInterface_::" << "AllocObject name :" << classSign << std::endl;
+#endif // OUTPUT
 			before(env);
 			auto result = current_env->AllocObject(clazz);
 			after(env);
@@ -261,7 +265,12 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		GetMethodID = [](JNIEnv* env, jclass clazz, const char* name, const char* sig) -> jmethodID {
-			_INVOKE_DEBUG(GetMethodID);
+
+#ifdef OUTPUT
+			char* classSign = 0;
+			current_context->jvmti.value()->GetClassSignature(clazz, &classSign, 0);
+			log << "DEBUG: JNINativeInterface_::" << "GetMethodID name :" << " Class :" << classSign << name << " sig :" << sig << std::endl;
+#endif // OUTPUT
 			before(env);
 			auto result = current_env->GetMethodID(clazz, name, sig);
 			after(env);
@@ -269,7 +278,32 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		CallObjectMethod = [](JNIEnv* env, jobject obj, jmethodID methodID, ...) -> jobject {
-			_INVOKE_DEBUG(CallObjectMethod);
+
+#ifdef OUTPUT
+			char* methodName = 0;
+			char* methodSign = 0;
+			current_context->jvmti.value()->GetMethodName(methodID, &methodName, &methodSign, 0);
+			before(env);
+			char* classSign = 0;
+			auto klass = current_env->GetObjectClass(obj);
+			current_context->jvmti.value()->GetClassSignature(klass, &classSign, 0);
+
+			log << "DEBUG: JNINativeInterface_::" << "CallObjectMethod class" << classSign << " name :" << methodName << " sig :" << methodSign << std::endl;
+			if (utils::strutil::ends_with(methodSign, "Ljava/lang/String;"))
+			{
+				before(env);
+				va_list args;
+				va_start(args, methodID);
+				jstring result = (jstring)current_env->CallObjectMethodV(obj, methodID, args);
+				va_end(args);
+
+
+				auto str = current_env->GetStringUTFChars(result, 0);
+				log << "Call Result Str: " << str << std::endl;
+				after(env);
+				return (jobject)result;
+			}
+#endif // OUTPUT
 			before(env);
 			va_list args;
 			va_start(args, methodID);
@@ -296,7 +330,14 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		CallBooleanMethod = [](JNIEnv* env, jobject obj, jmethodID methodID, ...) -> jboolean {
-			_INVOKE_DEBUG(CallBooleanMethod);
+#ifdef OUTPUT
+			char* methodName = 0;
+			char* methodSign = 0;
+			current_context->jvmti.value()->GetMethodName(methodID, &methodName, &methodSign, 0);
+
+			log << "DEBUG: JNINativeInterface_::" << "CallBooleanMethod name :" << methodName << " sig :" << methodSign << std::endl;
+
+#endif // OUTPUT
 			before(env);
 			va_list args;
 			va_start(args, methodID);
@@ -804,7 +845,13 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		GetFieldID = [](JNIEnv* env, jclass clazz, const char* name, const char* sig) -> jfieldID {
-			_INVOKE_DEBUG(GetFieldID);
+#ifdef OUTPUT
+			char* classSign = 0;
+			before(env);
+			after(env);
+			current_context->jvmti.value()->GetClassSignature(clazz, &classSign, 0);
+			log << "DEBUG: JNINativeInterface_::" << "GetFieldID class :" << classSign << "name :" << name << " sig :" << sig << std::endl;
+#endif // OUTPUT
 			before(env);
 			auto result = current_env->GetFieldID(clazz, name, sig);
 			after(env);
@@ -812,7 +859,17 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		GetObjectField = [](JNIEnv* env, jobject obj, jfieldID fieldID) -> jobject {
-			_INVOKE_DEBUG(GetObjectField);
+#ifdef OUTPUT
+			char* classSign = 0;
+			before(env);
+			auto klass = current_env->GetObjectClass(obj);
+			after(env);
+			current_context->jvmti.value()->GetClassSignature(klass, &classSign, 0);
+			char* fieldName = 0, * fieldSign = 0;
+			current_context->jvmti.value()->GetFieldName(klass, fieldID, &fieldName, &fieldSign, 0);
+
+			log << "DEBUG: JNINativeInterface_::" << "GetObjectField class :" << classSign << " name :" << fieldName << " sign :" << fieldSign << std::endl;
+#endif // OUTPUT
 			before(env);
 			auto result = current_env->GetObjectField(obj, fieldID);
 			after(env);
@@ -959,7 +1016,18 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 
 
 		CallStaticObjectMethod = [](JNIEnv* env, jclass clazz, jmethodID methodID, ...) -> jobject {
-			_INVOKE_DEBUG(CallStaticObjectMethod);
+#ifdef OUTPUT
+			char* methodName = 0;
+			char* classSign = 0;
+			char* methodSign = 0;
+			current_context->jvmti.value()->GetMethodName(methodID, &methodName, &methodSign, 0);
+			before(env);
+			auto klass = clazz;
+			current_context->jvmti.value()->GetClassSignature(klass, &classSign, 0);
+
+			log << "DEBUG: JNINativeInterface_::" << "CallStaticObjectMethod class" << classSign << " name :" << methodName << " sig :" << methodSign << std::endl;
+
+#endif // OUTPUT
 			before(env);
 			va_list args;
 			va_start(args, methodID);
@@ -1361,7 +1429,10 @@ struct FakeNativeInterface : public JNINativeInterface_ {
 			};
 
 		NewString = [](JNIEnv* env, const jchar* unicode, jsize len) -> jstring {
-			_INVOKE_DEBUG(NewString);
+#ifdef OUTPUT
+			std::wstring normalStr(reinterpret_cast<const wchar_t*>(unicode), len);
+			log << "DEBUG: JNINativeInterface_::" << "NewString : " << utils::wstr::to_string(normalStr) << std::endl;
+#endif // OUTPUT
 			before(env);
 			auto result = current_env->NewString(unicode, len);
 			after(env);

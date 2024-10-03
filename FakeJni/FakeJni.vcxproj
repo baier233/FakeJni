@@ -155,12 +155,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="base\dllmain.cpp" />
     <ClCompile Include="base\jvm\hotspot\jvm_internal.cpp" />
     <ClCompile Include="base\veh\VEH.cpp" />
-    <ClCompile Include="ext\dllmain.cpp" />
     <ClCompile Include="base\jvm\fake\JavaVM.cpp" />
     <ClCompile Include="base\jvm\context\JVMContext.cpp" />
     <ClCompile Include="base\jvm\fake\JNIEnv.cpp" />
+    <ClCompile Include="base\handler\XinxinHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="base\include_header.h" />
@@ -186,6 +187,7 @@
       <FileType>CppCode</FileType>
     </ClInclude>
     <ClInclude Include="ext\titan_hook.h" />
+    <ClInclude Include="base\handler\XinxinHandler.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

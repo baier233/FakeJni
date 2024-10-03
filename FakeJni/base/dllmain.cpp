@@ -9,6 +9,11 @@
 #include "LOG.h"
 #include <jvm/hotspot/jvm_internal.h>
 
+
+
+template<class members_type>
+std::map<members_type, std::string> class_name_cache;
+
 namespace thread {
 	inline size_t size = 0;
 	inline void* address = 0;
@@ -29,66 +34,15 @@ FakeJNI::FakeJNIEnv* fake_env = new FakeJNI::FakeJNIEnv();
 
 TitanHook<decltype(&LoadLibraryA)> LoadLibraryAHook;
 typedef jint(JNICALL* JNI_OnLoad_t)(JavaVM*, void*);
-typedef void (*reg_method)(JNIEnv*, jclass, jint, jclass);
-TitanHook < reg_method> RegMethodHook;
-reg_method orginal_reg_method;
 FARPROC jni_onload = 0;
 uintptr_t module_base = 0;
 
 
-
-static void my_reg_method2(JNIEnv* env, jclass caller, jint id, jclass clazz) {
-	LOG_P("my_reg_method2", "Enter");
-	FakeJNI::current_context->env = env;
-
-	auto restore_functions = env->functions;
-
-	FakeJNI::before = [restore_functions](JNIEnv* fake) ->void {
-		fake->functions = restore_functions;
-		};
-
-	env->functions = fake_native_interface;
-
-	FakeJNI::after = [](JNIEnv* fake) -> void {
-		fake->functions = fake_native_interface;
-		};
-
-	RegMethodHook.GetOrignalFunc()(env, caller, id, clazz);
-}
-static void my_reg_method(JNIEnv* env, jclass caller, jint id, jclass clazz) {
-	LOG_P("my_reg_method", "Enter");
-	LOG_FIELD_HEX(FakeJNI::current_context->jvmti.value());
-	LOG_FIELD_HEX(clazz);
-	char* sign{};
-	FakeJNI::current_context->jvmti.value()->GetClassSignature(clazz, &sign, 0);
-	std::string class_name(sign);
-	std::cout << "Registering clazz_" << id << " : " << utils::misc::to_java_class_name(class_name) << std::endl;
-
-	FakeJNI::current_context->env = env;
-
-	auto restore_functions = env->functions;
-
-	FakeJNI::before = [restore_functions](JNIEnv* fake) ->void {
-		fake->functions = restore_functions;
-		};
-
-	env->functions = fake_native_interface;
-
-	FakeJNI::after = [](JNIEnv* fake) -> void {
-		fake->functions = fake_native_interface;
-		};
-
-	RegMethodHook.GetOrignalFunc()(env, caller, id, clazz);
-	//orginal_reg_method(new FakeJNI::FakeJNIEnv(), caller, id, clazz);
-}
 jint my_jni_onload(JavaVM* vm, void*) {
 	FakeJNI::current_context->vm = vm;
 	JNIEnv* env{};
 	std::cout << "Enter my_jni_onload And Force Return" << std::endl;
 	vm->GetEnv((void**)&env, JNI_VERSION_1_6);
-	orginal_reg_method = reinterpret_cast<reg_method>(module_base + 1440128);
-
-	RegMethodHook.InitHook(reinterpret_cast<reg_method>(module_base + 1440128), my_reg_method);
 	//RegMethodHook.SetHook();
 
 	/* {
@@ -112,6 +66,27 @@ jint my_jni_onload(JavaVM* vm, void*) {
 	};
 
 	return veh::CallOriginal<jint>(reinterpret_cast<JNI_OnLoad_t>(jni_onload), jvm, (void*)0);
+}
+
+static jint JNICALL showVerifyPanel(JNIEnv* env, jclass caller);
+TitanHook<decltype(&showVerifyPanel)> HookShowVerifyPanel;
+static jint JNICALL showVerifyPanel(JNIEnv* env, jclass caller) {
+
+	FakeJNI::current_context->env = env;
+
+	auto restore_functions = env->functions;
+
+	FakeJNI::before = [restore_functions](JNIEnv* fake) ->void {
+		fake->functions = restore_functions;
+		};
+
+	env->functions = fake_native_interface;
+
+	FakeJNI::after = [](JNIEnv* fake) -> void {
+		fake->functions = fake_native_interface;
+		};
+	return 1;
+	return HookShowVerifyPanel.GetOrignalFunc()(env, caller);
 }
 static HMODULE my_loadlibrarya(LPCSTR module_path) {
 	std::string path(module_path);
@@ -158,12 +133,46 @@ static void JNICALL VMInitHook(jvmtiEnv* jvmti_env, JNIEnv* jni_env, jthread thr
 	LOG_FIELD(thread::offset_to_env);
 
 
-	LoadLibraryAHook.InitHook(LoadLibraryA, my_loadlibrarya);
-	LoadLibraryAHook.SetHook();
+	//LoadLibraryAHook.InitHook(LoadLibraryA, my_loadlibrarya);
+	//LoadLibraryAHook.SetHook();
 	FakeJNI::current_context->jvmti = jvmti_env;
 	//InitJniHook(jni_env);
 }
 
+#include <handler/XinxinHandler.h>
+static void JNICALL NativeMethodBindHook
+(jvmtiEnv* jvmti_env, JNIEnv* jni_env, jthread thread,
+	jmethodID methodid,
+	void* address, void** new_address_ptr) {
+
+	char* name;
+	char* sign;
+	jclass clazz;
+	jvmti_env->GetMethodDeclaringClass(methodid, &clazz);
+	char* clazzSign{};
+	jvmti_env->GetClassSignature(clazz, &clazzSign, 0);
+	jvmti_env->GetMethodName(methodid, &name, &sign, 0);
+	//std::cout << "Going To Crash!!" << std::endl;
+	if (!clazzSign)
+	{
+		return;
+	}
+	//std::cout << clazzSign << std::endl;
+	auto clazzSignStr = std::string(clazzSign);
+	if (clazzSignStr.find("Ljava/") != -1 || clazzSignStr.find("Lsun/") != -1 || clazzSignStr.find("Lcom/sun/jna/") != -1 || clazzSignStr.find("Lorg/lwjgl/") != -1)
+	{
+		return;
+	}
+
+
+
+	std::string signStr(sign);
+	// std::cout << pMethod << " Name : " << pMethod->get_name() << std::endl;;
+	std::string methodNameStr(name);
+
+	std::cout << "Class::{ Name -> " << clazzSign << " NativeMethod::{ Name -> " << methodNameStr << "  Sign -> " << sign << " Addr-> " << address << "} }" << std::endl;
+
+}
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM* vm, char* options, void* reserved) {
 	jvmtiEnv* jvmti_env;
 	jvmtiError error;
@@ -190,7 +199,7 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM* vm, char* options, void* reserved) {
 	jvmtiEventCallbacks callbacks;
 	memset(&callbacks, 0, sizeof(callbacks));
 
-	//callbacks.NativeMethodBind = &NativeMethodBindHook;
+	callbacks.NativeMethodBind = &NativeMethodBindHook;
 	callbacks.VMInit = &VMInitHook;
 	error = jvmti_env->SetEventCallbacks(&callbacks, sizeof(callbacks));
 	if (error != JVMTI_ERROR_NONE) return error;

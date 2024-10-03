@@ -9,6 +9,7 @@
 #include <optional>
 #include <format>
 #include <fstream>
+#include <map>
 
 #include "utils/misc.hpp"
 #include "utils/str.hpp"
